@@ -50,6 +50,10 @@ type Plan = {
 };
 
 const DEPTHS = [1, 2, 3] as const;
+/** Slowest pace per move, so a stalled POM never freezes the board for long. */
+const MAX_PACE_MS = 1500;
+/** Weight of the newest request latency in the running estimate. */
+const LATENCY_ALPHA = 0.35;
 
 const MAX_LOG = 40;
 const KEYMAP: Record<string, Direction> = {
@@ -158,11 +162,12 @@ export function Demo() {
   useEffect(() => () => abortRef.current?.abort(), []);
 
   /** Moves to the next position and starts the slide (and a burst on eating). */
-  const advance = useCallback((next: Game) => {
+  /** Moves to `next`; the slide lasts `slideMs` so a paced snake never stops. */
+  const advance = useCallback((next: Game, slideMs?: number) => {
     const before = gameRef.current;
     previousRef.current = before.snake;
     movedAtRef.current = performance.now();
-    slideMsRef.current = Math.max(60, Math.min(tickForScore(next.score), 160));
+    slideMsRef.current = Math.max(60, Math.min(slideMs ?? tickForScore(next.score), MAX_PACE_MS));
     if (next.score > before.score && before.food) burst(before.food, particlesRef.current);
     gameRef.current = next;
   }, []);
@@ -224,9 +229,14 @@ export function Demo() {
       let plan: Plan | null = null;
       // The next plan, asked while the current one is still being played.
       let prefetch: { key: string; promise: Promise<Plan | null> } | null = null;
+      // Running estimate of how long the POM takes to answer a plan. With
+      // "request ahead", the next plan is asked when the current one starts,
+      // so spreading the current plan's moves over that time makes the next
+      // plan arrive just as the last move ends: the snake keeps a steady pace
+      // instead of running the whole plan and then waiting.
+      let latency: number | null = null;
       while (!signal.aborted && gameRef.current.status === "playing") {
         const current = gameRef.current;
-        const started = performance.now();
         if (queue.length === 0) {
           try {
             const key = positionKey(current);
@@ -244,6 +254,9 @@ export function Demo() {
             finish({ ...current, status: "over", cause: "trapped" });
             break;
           }
+          if (!plan.forced && plan.ms > 0) {
+            latency = latency === null ? plan.ms : latency * (1 - LATENCY_ALPHA) + plan.ms * LATENCY_ALPHA;
+          }
           queue = plan.moves.slice();
           // The end of a plan that does not eat is known now: ask for the
           // following plan while this one plays.
@@ -256,6 +269,8 @@ export function Demo() {
             }
           }
         }
+        // The pace counts from the move itself, not from the wait for a plan.
+        const movedAt = performance.now();
         const choice = queue.shift()!;
         const active = plan!;
         const planStep = active.moves.length - queue.length;
@@ -283,11 +298,17 @@ export function Demo() {
           finish(next);
           break;
         }
-        advance(next);
+        // Never faster than the original game's speed for this score; with a
+        // plan asked ahead, as slow as needed to cover the next answer.
+        const base = tickForScore(next.score);
+        const paced =
+          ahead && latency !== null && prefetch
+            ? Math.min(MAX_PACE_MS, Math.max(base, (latency * 1.05) / Math.max(active.moves.length, 1)))
+            : base;
+        advance(next, paced);
         setBest((value) => Math.max(value, next.score));
         render();
-        // Never faster than the original game's speed for this score.
-        await wait(tickForScore(next.score) - (performance.now() - started), signal);
+        await wait(paced - (performance.now() - movedAt), signal);
       }
       setRunning(false);
     },

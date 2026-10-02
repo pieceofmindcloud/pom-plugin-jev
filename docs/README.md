@@ -72,4 +72,8 @@ One **POM-JEV** menu item opens a screen with two tabs.
   survives there is nothing to decide and the POM is not called. With
   "Request ahead", the next plan is asked from where the current one ends
   while it is still playing; this is skipped when the plan eats, because the
-  next food is random. You can also play.
+  next food is random. With a plan asked ahead, the moves are paced from the
+  measured answer time (never faster than the game's own speed): the plan's
+  moves are spread over the time the next answer takes, so the snake moves
+  at a steady pace instead of running a plan and stopping to wait. You can
+  also play.

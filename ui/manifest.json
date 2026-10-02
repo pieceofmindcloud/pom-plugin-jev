@@ -1,0 +1,87 @@
+{
+  "schema": "pom-plugin-ui/v1",
+  "plugin_code": "jev",
+  "icon_image": "ui/icon.png",
+  "description": {
+    "en": "JEV for the POM: typed decisions from the model your POM serves. Ask yes-or-no (noul), one-of-many (choice) and scale (score) questions about any state and get calibrated probabilities, in a playground and in a live Snake demo where JEV picks every move.",
+    "pt-BR": "JEV para o POM: decisões tipadas com o modelo que o seu POM serve. Faça perguntas de sim ou não (noul), uma entre várias (choice) e escala (score) sobre qualquer estado e receba probabilidades calibradas, num playground e numa demo ao vivo da cobrinha em que o JEV escolhe cada movimento."
+  },
+  "screenshots": [
+    "docs/screenshots/playground.png",
+    "docs/screenshots/demo.png"
+  ],
+  "documentation": [
+    "docs/README.md"
+  ],
+  "menu": [
+    {
+      "id": "jev",
+      "label": {
+        "en": "JEV",
+        "pt-BR": "JEV"
+      },
+      "icon": "blocks",
+      "to": "/jev",
+      "children": [
+        {
+          "id": "playground",
+          "label": {
+            "en": "Playground",
+            "pt-BR": "Playground"
+          },
+          "icon": "messages-square",
+          "to": "/jev"
+        },
+        {
+          "id": "demo",
+          "label": {
+            "en": "Demo",
+            "pt-BR": "Demo"
+          },
+          "icon": "list-tree",
+          "to": "/jev/demo"
+        }
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "path": "/jev",
+      "screen": "playground",
+      "full_bleed": true
+    },
+    {
+      "path": "/jev/demo",
+      "screen": "demo",
+      "full_bleed": true
+    }
+  ],
+  "screens": {
+    "playground": {
+      "module": "ui/screens.js",
+      "export": "playground",
+      "styles": [
+        "ui/plugin.css"
+      ]
+    },
+    "demo": {
+      "module": "ui/screens.js",
+      "export": "demo",
+      "styles": [
+        "ui/plugin.css"
+      ]
+    }
+  },
+  "i18n": {
+    "en": "i18n/en.json",
+    "pt-BR": "i18n/pt-BR.json"
+  },
+  "assets": [
+    "ui/screens.js",
+    "ui/plugin.css",
+    "ui/icon.png",
+    "i18n/en.json",
+    "i18n/pt-BR.json",
+    "docs/README.md"
+  ]
+}

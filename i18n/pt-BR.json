@@ -25,7 +25,7 @@
   "copy.json": "Copiar JSON",
   "copy.done": "Copiado",
   "demo.title": "O POM-JEV joga a cobrinha",
-  "demo.body": "A cada movimento o plugin envia o tabuleiro como posições (cabeça, corpo e comida, sem imagem) e faz uma pergunta choice: up, down, left ou right. A resposta mais provável é jogada.",
+  "demo.body": "A cada requisição o plugin envia o tabuleiro como posições (cabeça, corpo e comida, sem imagem) e faz uma pergunta choice sobre os próximos 1 a 3 movimentos como um caminho (up-left, ...). O caminho mais provável é jogado; o próximo pode ser pedido enquanto ele é jogado.",
   "demo.pilot": "Quem joga",
   "demo.pilot.jev": "POM-JEV",
   "demo.pilot.human": "Você",
@@ -105,5 +105,10 @@
   "tab.playground": "Playground",
   "tab.demo": "Demo",
   "copy.failed": "Cópia bloqueada: selecione o texto",
-  "curl.hint": "A mesma requisição pelo terminal. Defina POM_API_KEY com uma das suas API keys do POM. Clique no texto para selecioná-lo."
+  "curl.hint": "A mesma requisição pelo terminal. Defina POM_API_KEY com uma das suas API keys do POM. Clique no texto para selecioná-lo.",
+  "demo.depth": "Movimentos por requisição",
+  "demo.ahead": "Pedir adiantado",
+  "demo.aheadHint": "Enquanto um plano é jogado, pede o próximo a partir de onde ele termina (não quando o plano come, porque a próxima comida é aleatória).",
+  "demo.aheadTag": "pedido adiantado",
+  "demo.planStep": "plano {step}/{total}"
 }

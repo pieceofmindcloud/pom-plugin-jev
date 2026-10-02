@@ -25,7 +25,7 @@
   "copy.json": "Copy JSON",
   "copy.done": "Copied",
   "demo.title": "POM-JEV plays Snake",
-  "demo.body": "On every move the plugin sends the board as positions (snake head, body and food, no image) and asks one choice question: up, down, left or right. The highest-probability answer is played.",
+  "demo.body": "On every request the plugin sends the board as positions (snake head, body and food, no image) and asks one choice question over the next 1 to 3 moves as a path (up-left, ...). The most likely path is played; the next one can be asked while it plays.",
   "demo.pilot": "Who plays",
   "demo.pilot.jev": "POM-JEV",
   "demo.pilot.human": "You",
@@ -105,5 +105,10 @@
   "tab.playground": "Playground",
   "tab.demo": "Demo",
   "copy.failed": "Copy blocked: select the text",
-  "curl.hint": "The same request from a terminal. Set POM_API_KEY to one of your POM API keys. Click the text to select it."
+  "curl.hint": "The same request from a terminal. Set POM_API_KEY to one of your POM API keys. Click the text to select it.",
+  "demo.depth": "Moves per request",
+  "demo.ahead": "Request ahead",
+  "demo.aheadHint": "While a plan plays, ask for the next one from where it ends (skipped when the plan eats, because the next food is random).",
+  "demo.aheadTag": "asked ahead",
+  "demo.planStep": "plan {step}/{total}"
 }

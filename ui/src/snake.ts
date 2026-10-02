@@ -120,35 +120,120 @@ export function decisionState(game: Game) {
   };
 }
 
+/** One candidate path of 1 to 3 moves, already simulated. */
+export type PathOption = {
+  name: string;
+  moves: Direction[];
+  /** Where the path ends (for a fatal path, the position before dying). */
+  end: Game;
+  fatal: false | "wall" | "body";
+  /** Move (1-based) at which the snake eats, if it does. */
+  eatsAt: number | null;
+  /** The path stops early because no safe move follows. */
+  trapped: boolean;
+};
+
+export const MAX_OPTIONS = 26;
+const noFood = () => 0;
+
 /**
- * The `move` question. With the guard on, moves that die on this step are not
- * offered; with hints on, each option states what it leads to.
+ * Every path of up to `depth` moves from this position. A path stops early
+ * when it eats (the next food is random, so nothing after it is known) or
+ * when no safe move follows. With the guard on, paths that die are not
+ * offered. At most 26 options (the POM's choice limit), best first.
  */
-export function moveQuestion(game: Game, options: { guard: boolean; hints: boolean }) {
-  const criteria: Record<string, string | null> = {};
-  for (const dir of DIRECTIONS) {
-    const check = checkMove(game, dir);
-    if (check.fatal === "reverse") continue;
-    if (options.guard && check.fatal) continue;
-    if (!options.hints) {
-      criteria[dir] = null;
-      continue;
+export function enumeratePaths(game: Game, depth: number, guard: boolean): PathOption[] {
+  const out: PathOption[] = [];
+  const walk = (current: Game, moves: Direction[], eatsAt: number | null) => {
+    let extended = false;
+    for (const dir of DIRECTIONS) {
+      const check = checkMove(current, dir);
+      if (check.fatal === "reverse") continue;
+      const path = [...moves, dir];
+      if (check.fatal) {
+        if (!guard) out.push({ name: path.join("-"), moves: path, end: current, fatal: check.fatal, eatsAt, trapped: false });
+        extended = extended || !guard;
+        continue;
+      }
+      extended = true;
+      const next = step(current, dir, noFood);
+      const ate = check.eats ? path.length : eatsAt;
+      if (check.eats || path.length >= depth) {
+        out.push({ name: path.join("-"), moves: path, end: next, fatal: false, eatsAt: ate, trapped: false });
+      } else {
+        walk(next, path, ate);
+      }
     }
-    if (check.fatal === "wall") criteria[dir] = `hits the wall at (${check.to.x},${check.to.y}) and dies`;
-    else if (check.fatal === "body") criteria[dir] = `bites its own body at (${check.to.x},${check.to.y}) and dies`;
-    else {
-      const parts = [`head goes to (${check.to.x},${check.to.y})`];
-      if (check.eats) parts.push("eats the food");
-      else if (game.food) parts.push(`food distance becomes ${distance(check.to, game.food)} (now ${distance(game.snake[0], game.food)})`);
-      const room = reachableAfter(game, dir);
-      parts.push(room < game.snake.length ? `only ${room} free cells reachable afterwards: a trap` : `${room} free cells reachable afterwards`);
-      criteria[dir] = parts.join("; ");
+    if (!extended && moves.length > 0) {
+      out.push({ name: moves.join("-"), moves, end: current, fatal: false, eatsAt, trapped: true });
+    }
+  };
+  walk(game, [], null);
+  const food = game.food;
+  const score = (option: PathOption) => {
+    if (option.fatal) return 3_000_000;
+    if (option.trapped) return 2_000_000;
+    const room = reachableRoom(option.end);
+    const tight = room < option.end.snake.length ? 1_000_000 : 0;
+    const eat = option.eatsAt !== null ? -10_000 + option.eatsAt * 100 : 0;
+    const head = option.end.snake[0];
+    const dist = food && option.eatsAt === null ? distance(head, food) * 10 : 0;
+    return tight + eat + dist - Math.min(room, 99) / 100;
+  };
+  return out.sort((a, b) => score(a) - score(b)).slice(0, MAX_OPTIONS);
+}
+
+/** Free cells the head of this position can reach. */
+function reachableRoom(game: Game): number {
+  const blocked = new Set(game.snake.slice(1).map(keyOf));
+  const start = game.snake[0];
+  const seen = new Set([keyOf(start)]);
+  const queue = [start];
+  while (queue.length) {
+    const cell = queue.shift()!;
+    for (const d of DIRECTIONS) {
+      const next = { x: cell.x + DIRS[d].x, y: cell.y + DIRS[d].y };
+      const key = keyOf(next);
+      if (!inBounds(next) || blocked.has(key) || seen.has(key)) continue;
+      seen.add(key);
+      queue.push(next);
     }
   }
+  return seen.size - 1;
+}
+
+function describePath(game: Game, option: PathOption): string {
+  if (option.fatal) {
+    const at = option.moves.length;
+    return option.fatal === "wall" ? `hits the wall at move ${at} and dies` : `bites its own body at move ${at} and dies`;
+  }
+  const head = option.end.snake[0];
+  const parts = [`head ends at (${head.x},${head.y})`];
+  if (option.eatsAt !== null) parts.push(`eats the food at move ${option.eatsAt}`);
+  else if (game.food) parts.push(`food distance becomes ${distance(head, game.food)} (now ${distance(game.snake[0], game.food)})`);
+  if (option.trapped) parts.push("then no safe move: a trap");
+  else {
+    const room = reachableRoom(option.end);
+    parts.push(room < option.end.snake.length ? `only ${room} free cells reachable afterwards: a trap` : `${room} free cells reachable afterwards`);
+  }
+  return parts.join("; ");
+}
+
+/** The `plan` question over the given paths (option names like `up-left`). */
+export function planQuestion(game: Game, options: PathOption[], depth: number, hints: boolean) {
+  const criteria: Record<string, string | null> = {};
+  for (const option of options) criteria[option.name] = hints ? describePath(game, option) : null;
+  const goal =
+    "reach the food as fast as possible, never hit a wall or the snake's own body, and avoid paths that leave too little free space.";
   return {
     type: "choice" as const,
     instructions:
-      "You steer the snake. Pick the next move: reach the food as fast as possible, never hit a wall or the snake's own body, and avoid moves that leave too little free space.",
+      depth <= 1
+        ? `You steer the snake. Pick the next move: ${goal}`
+        : `You steer the snake. Pick the next moves as one path (up to ${depth} moves, separated by '-'; a path stops early where the snake eats): ${goal}`,
     criteria,
   };
 }
+
+/** Position and food as a key: a prefetched plan is only used for the same position. */
+export const positionKey = (game: Game) => JSON.stringify([game.snake, game.food, game.dir]);

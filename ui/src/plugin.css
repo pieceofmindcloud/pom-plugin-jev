@@ -354,6 +354,7 @@ html[data-theme="light"] .pb-page {
 .pb-arena { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
 .pb-arena > .pb-btn-row { margin: 0; }
 .pb-stage { flex: 1 1 auto; min-height: 0; display: grid; place-items: center; }
+.pb-select-small { padding: 4px 8px; font-size: 12px; }
 .pb-field-inline { display: inline-flex; align-items: center; gap: 8px; }
 .pb-scorebar { display: flex; gap: 10px; }
 .pb-score {

@@ -6,8 +6,10 @@ import {
   DIRECTIONS,
   checkMove,
   decisionState,
-  moveQuestion,
+  enumeratePaths,
   newGame,
+  planQuestion,
+  positionKey,
   step,
   tickForScore,
   type Cell,
@@ -23,9 +25,31 @@ type Decision = {
   forced: boolean;
   probabilities: Record<string, number>;
   confidence?: number;
-  ms: number;
+  /** Time to get the plan; only on the first move of a plan. */
+  ms: number | null;
   score: number;
+  /** The chosen path, and this move's place in it. */
+  path: string;
+  planStep: number;
+  planLength: number;
+  /** The plan was requested while the previous one was still playing. */
+  ahead: boolean;
 };
+
+/** A chosen path: what the POM said (or that there was no choice). */
+type Plan = {
+  moves: Direction[];
+  path: string;
+  forced: boolean;
+  probabilities: Record<string, number>;
+  confidence?: number;
+  ms: number;
+  ahead: boolean;
+  /** The plan eats: the next position depends on random food. */
+  eats: boolean;
+};
+
+const DEPTHS = [1, 2, 3] as const;
 
 const MAX_LOG = 40;
 const KEYMAP: Record<string, Direction> = {
@@ -72,6 +96,8 @@ export function Demo() {
   const [running, setRunning] = useState(false);
   const [guard, setGuard] = useState(true);
   const [hints, setHints] = useState(true);
+  const [depth, setDepth] = useState<number>(2);
+  const [ahead, setAhead] = useState(true);
   const [models, setModels] = useState<string[]>([]);
   const [model, setModel] = useState("");
   const [log, setLog] = useState<Decision[]>([]);
@@ -149,53 +175,109 @@ export function Demo() {
     render();
   }, []);
 
+  /** Asks for the next path from `game` (or plays the only one there is). */
+  const requestPlan = useCallback(
+    async (game: Game, signal: AbortSignal, ahead: boolean): Promise<Plan | null> => {
+      const started = performance.now();
+      const options = enumeratePaths(game, depth, guard);
+      if (options.length === 0) return null;
+      if (options.length === 1) {
+        const only = options[0];
+        return {
+          moves: only.moves,
+          path: only.name,
+          forced: true,
+          probabilities: { [only.name]: 1 },
+          ms: 0,
+          ahead,
+          eats: only.eatsAt !== null,
+        };
+      }
+      const request = {
+        ...(model ? { model } : {}),
+        state: decisionState(game),
+        questions: { plan: planQuestion(game, options, depth, hints) },
+      };
+      setLastRequest(request);
+      const response = await decide(request, signal);
+      const answer = response.answers.plan;
+      if (!answer || answer.type !== "choice") throw new Error(t("demo.badAnswer"));
+      const chosen = options.find((option) => option.name === answer.choice);
+      if (!chosen) throw new Error(t("demo.badAnswer"));
+      return {
+        moves: chosen.moves,
+        path: chosen.name,
+        forced: false,
+        probabilities: answer.probabilities,
+        confidence: answer.confidence,
+        ms: Math.round(performance.now() - started),
+        ahead,
+        eats: chosen.eatsAt !== null,
+      };
+    },
+    [depth, guard, hints, model, t],
+  );
+
   const jevLoop = useCallback(
     async (signal: AbortSignal) => {
+      let queue: Direction[] = [];
+      let plan: Plan | null = null;
+      // The next plan, asked while the current one is still being played.
+      let prefetch: { key: string; promise: Promise<Plan | null> } | null = null;
       while (!signal.aborted && gameRef.current.status === "playing") {
         const current = gameRef.current;
         const started = performance.now();
-        const safe = DIRECTIONS.filter((dir) => !checkMove(current, dir).fatal);
-        let choice: Direction;
-        let entry: Omit<Decision, "dir" | "ms">;
-        // No choice to make: JEV is not asked. Zero safe moves ends the game;
-        // one safe move is played directly, with or without the guard.
-        if (safe.length === 0) {
-          finish({ ...current, status: "over", cause: "trapped" });
-          break;
-        }
-        if (safe.length === 1) {
-          choice = safe[0];
-          entry = { move: current.moves + 1, forced: true, probabilities: { [choice]: 1 }, score: current.score };
-        } else {
-          const request = {
-            ...(model ? { model } : {}),
-            state: decisionState(current),
-            questions: { move: moveQuestion(current, { guard, hints }) },
-          };
-          setLastRequest(request);
+        if (queue.length === 0) {
           try {
-            const response = await decide(request, signal);
-            const answer = response.answers.move;
-            if (!answer || answer.type !== "choice") throw new Error(t("demo.badAnswer"));
-            choice = answer.choice as Direction;
-            entry = {
-              move: current.moves + 1,
-              forced: false,
-              probabilities: answer.probabilities,
-              confidence: answer.confidence,
-              score: current.score,
-            };
+            const key = positionKey(current);
+            const ready = prefetch && prefetch.key === key ? prefetch.promise : null;
+            prefetch = null;
+            plan = (ready ? await ready : null) ?? (await requestPlan(current, signal, false));
           } catch (failure) {
             if (signal.aborted) break;
             setError((failure as Error).message);
             setRunning(false);
             break;
           }
+          if (signal.aborted) break;
+          if (!plan) {
+            finish({ ...current, status: "over", cause: "trapped" });
+            break;
+          }
+          queue = plan.moves.slice();
+          // The end of a plan that does not eat is known now: ask for the
+          // following plan while this one plays.
+          if (ahead && !plan.eats && plan.moves.length > 0) {
+            let end = current;
+            for (const dir of plan.moves) end = step(end, dir);
+            if (end.status === "playing") {
+              const promise = requestPlan(end, signal, true).catch(() => null);
+              prefetch = { key: positionKey(end), promise };
+            }
+          }
         }
-        if (signal.aborted) break;
-        hintRef.current = choice;
-        const ms = Math.round(performance.now() - started);
-        setLog((items) => [{ ...entry, dir: choice, ms }, ...items].slice(0, MAX_LOG));
+        const choice = queue.shift()!;
+        const active = plan!;
+        const planStep = active.moves.length - queue.length;
+        hintRef.current = queue[0] ?? choice;
+        setLog((items) =>
+          [
+            {
+              move: current.moves + 1,
+              dir: choice,
+              forced: active.forced,
+              probabilities: active.probabilities,
+              confidence: active.confidence,
+              ms: planStep === 1 ? active.ms : null,
+              score: current.score,
+              path: active.path,
+              planStep,
+              planLength: active.moves.length,
+              ahead: active.ahead,
+            },
+            ...items,
+          ].slice(0, MAX_LOG),
+        );
         const next = step(current, choice);
         if (next.status === "over") {
           finish(next);
@@ -209,7 +291,7 @@ export function Demo() {
       }
       setRunning(false);
     },
-    [advance, finish, guard, hints, model, t],
+    [advance, ahead, finish, requestPlan],
   );
 
   const humanLoop = useCallback(
@@ -275,8 +357,15 @@ export function Demo() {
     setPilot(next);
   };
 
-  const asked = log.filter((entry) => !entry.forced);
-  const avgMs = asked.length ? Math.round(asked.reduce((sum, entry) => sum + entry.ms, 0) / asked.length) : null;
+  // One request per plan: count the first move of every plan the POM chose.
+  const asked = log.filter((entry) => !entry.forced && entry.planStep === 1);
+  const timed = asked.filter((entry) => entry.ms !== null);
+  const avgMs = timed.length ? Math.round(timed.reduce((sum, entry) => sum + (entry.ms ?? 0), 0) / timed.length) : null;
+  const pathLabel = (path: string) =>
+    path
+      .split("-")
+      .map((dir) => ARROWS[dir as Direction] ?? dir)
+      .join(" ");
   const avgConfidence = asked.length
     ? asked.reduce((sum, entry) => sum + (entry.confidence ?? 0), 0) / asked.length
     : null;
@@ -382,6 +471,18 @@ export function Demo() {
                   <input type="checkbox" checked={hints} disabled={running} onChange={(event) => setHints(event.target.checked)} />
                   <span>{t("demo.hints")}</span>
                 </label>
+                <label className="pb-check">
+                  <span>{t("demo.depth")}</span>
+                  <select className="pb-select pb-select-small" value={depth} disabled={running} onChange={(event) => setDepth(Number(event.target.value))}>
+                    {DEPTHS.map((value) => (
+                      <option key={value} value={value}>{value}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="pb-check" title={t("demo.aheadHint")}>
+                  <input type="checkbox" checked={ahead} disabled={running} onChange={(event) => setAhead(event.target.checked)} />
+                  <span>{t("demo.ahead")}</span>
+                </label>
               </>
             )}
           </div>
@@ -394,13 +495,14 @@ export function Demo() {
             {latest ? (
               <>
                 <p className="pb-live-move">
-                  <span aria-hidden="true">{ARROWS[latest.dir]}</span> {latest.dir}
+                  <span aria-hidden="true">{pathLabel(latest.path)}</span> {latest.path}
                   {latest.forced && <small>{t("demo.forced")}</small>}
+                  {!latest.forced && latest.ahead && <small>{t("demo.aheadTag")}</small>}
                 </p>
                 <ul className="pb-bars">
-                  {ranked(latest.probabilities).map(([dir, value]) => (
-                    <li key={dir} className={dir === latest.dir ? "pb-bar pb-bar-win" : "pb-bar"}>
-                      <span className="pb-bar-label">{dir}</span>
+                  {ranked(latest.probabilities).slice(0, 8).map(([path, value]) => (
+                    <li key={path} className={path === latest.path ? "pb-bar pb-bar-win" : "pb-bar"}>
+                      <span className="pb-bar-label">{path}</span>
                       <span className="pb-bar-track" aria-hidden="true">
                         <span className="pb-bar-fill" style={{ width: `${Math.max(value * 100, 0.5)}%` }} />
                       </span>
@@ -427,7 +529,11 @@ export function Demo() {
                   <span className="pb-log-move">#{entry.move}</span>
                   <span className="pb-log-dir">{ARROWS[entry.dir]} {entry.dir}</span>
                   <span className="pb-log-meta">
-                    {entry.forced ? t("demo.forced") : `${percent(entry.probabilities[entry.dir] ?? 0)} · ${entry.ms} ms`}
+                    {entry.forced
+                      ? t("demo.forced")
+                      : entry.planStep > 1
+                        ? t("demo.planStep", { step: entry.planStep, total: entry.planLength })
+                        : `${percent(entry.probabilities[entry.path] ?? 0)} · ${entry.ms} ms${entry.ahead ? ` · ${t("demo.aheadTag")}` : ""}`}
                   </span>
                 </li>
               ))}

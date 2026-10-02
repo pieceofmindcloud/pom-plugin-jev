@@ -60,10 +60,14 @@ One **POM-JEV** menu item opens a screen with two tabs.
   probability bars. Examples, model selector, `Ctrl+Enter` to run, copy as
   curl or JSON, and a status bar with the request state.
 - **Demo**: Snake played by POM-JEV, drawn on a grass field with a tapered,
-  scaled snake that slides between cells. Every move sends only positions (head, body,
-  food, current direction) and asks one `choice` question with `up`, `down`,
-  `left`, `right`. "Never offer a fatal move" removes moves that die on this
-  step; "Describe each move" adds facts per option (food distance, reachable
-  free cells). Turn both off to watch the model on its own. When only one move
-does not die there is no decision to make, so the plugin plays it without
-calling the POM. You can also play.
+  scaled snake that slides between cells. Every request sends only positions
+  (head, body, food, current direction) and asks one `choice` question over
+  the next **1 to 3 moves as a path** (`up`, `up-left`, `up-left-left`, ...;
+  "Moves per request"). The plugin simulates each path, so a path stops early
+  where the snake eats, "Never offer a fatal move" removes paths that die and
+  "Describe each move" states where each path ends (food distance, reachable
+  free cells). At most 26 paths are offered, best first. When only one path
+  survives there is nothing to decide and the POM is not called. With
+  "Request ahead", the next plan is asked from where the current one ends
+  while it is still playing; this is skipped when the plan eats, because the
+  next food is random. You can also play.

@@ -309,13 +309,38 @@ function QuestionEditor({
   );
 }
 
+/**
+ * Copies text. The Clipboard API only exists on HTTPS or localhost, and the
+ * POM is usually opened as plain http://<node>:8080, so fall back to a
+ * selected textarea and `execCommand("copy")`, which still works there.
+ */
 async function copy(text: string) {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    return false;
+  if (window.isSecureContext && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // fall through to the legacy path
+    }
   }
+  const area = document.createElement("textarea");
+  area.value = text;
+  area.setAttribute("readonly", "");
+  area.style.position = "fixed";
+  area.style.top = "0";
+  area.style.left = "0";
+  area.style.opacity = "0";
+  document.body.appendChild(area);
+  area.focus();
+  area.select();
+  let copied = false;
+  try {
+    copied = document.execCommand("copy");
+  } catch {
+    copied = false;
+  }
+  area.remove();
+  return copied;
 }
 
 function stateTextOf(state: unknown): string {
@@ -386,7 +411,11 @@ export function Playground() {
     if (await copy(text)) {
       setCopied(key);
       window.setTimeout(() => setCopied(null), 1400);
+      return true;
     }
+    setCopied(`${key}-failed`);
+    window.setTimeout(() => setCopied(null), 2400);
+    return false;
   };
 
   const load = (state: unknown, questions: DecisionRequest["questions"]) => {
@@ -482,8 +511,17 @@ export function Playground() {
               <option key={id} value={id}>{id}</option>
             ))}
           </select>
-          <button type="button" className="pb-btn pb-btn-outline pb-btn-small" onClick={() => void flash("curl", curlFor(request))}>
-            {copied === "curl" ? t("copy.done") : t("copy.curl")}
+          <button
+            type="button"
+            className="pb-btn pb-btn-outline pb-btn-small"
+            onClick={() =>
+              void flash("curl", curlFor(request)).then((ok) => {
+                // When the browser refuses, show the command to copy by hand.
+                if (!ok) select("curl");
+              })
+            }
+          >
+            {copied === "curl" ? t("copy.done") : copied === "curl-failed" ? t("copy.failed") : t("copy.curl")}
           </button>
           <button type="button" className="pb-btn pb-btn-accent" disabled={!runnable || running} onClick={() => void run()}>
             {running ? t("playground.running") : t("playground.run")}
@@ -505,6 +543,10 @@ export function Playground() {
             <span className="pb-node-icon" aria-hidden="true">{"</>"}</span>
             <span className="pb-node-name">request.json</span>
             {jsonError && <span className="pb-dot" title={jsonError} />}
+          </button>
+          <button type="button" className={selected === "curl" ? "pb-node pb-node-on" : "pb-node"} onClick={() => select("curl")}>
+            <span className="pb-node-icon" aria-hidden="true">$_</span>
+            <span className="pb-node-name">curl.sh</span>
           </button>
 
           <div className="pb-explorer-head">
@@ -543,7 +585,13 @@ export function Playground() {
         <section className="pb-pane pb-pane-editor">
           <div className="pb-tabbar">
             <span className="pb-tab pb-tab-on">
-              {selected === "state" ? "state" : selected === "json" ? "request.json" : current?.id || "?"}
+              {selected === "state"
+                ? "state"
+                : selected === "json"
+                  ? "request.json"
+                  : selected === "curl"
+                    ? "curl.sh"
+                    : current?.id || "?"}
             </span>
             {current && <span className={`pb-type pb-type-${current.type}`}>{current.type}</span>}
           </div>
@@ -575,6 +623,24 @@ export function Playground() {
                 />
               </div>
             )}
+            {selected === "curl" && (
+              <div className="pb-fill">
+                <div className="pb-curl-head">
+                  <p className="pb-hint">{t("curl.hint")}</p>
+                  <button type="button" className="pb-btn pb-btn-outline pb-btn-small" onClick={() => void flash("curl-view", curlFor(request))}>
+                    {copied === "curl-view" ? t("copy.done") : copied === "curl-view-failed" ? t("copy.failed") : t("copy.curl")}
+                  </button>
+                </div>
+                <textarea
+                  className="pb-code-input"
+                  readOnly
+                  spellCheck={false}
+                  value={curlFor(request)}
+                  aria-label="curl.sh"
+                  onFocus={(event) => event.currentTarget.select()}
+                />
+              </div>
+            )}
             {current && (
               <QuestionEditor
                 draft={current}
@@ -590,7 +656,7 @@ export function Playground() {
             <span className="pb-tab pb-tab-on">{t("playground.response")}</span>
             {result && (
               <button type="button" className="pb-btn pb-btn-outline pb-btn-small" onClick={() => void flash("json", JSON.stringify(result, null, 2))}>
-                {copied === "json" ? t("copy.done") : t("copy.json")}
+                {copied === "json" ? t("copy.done") : copied === "json-failed" ? t("copy.failed") : t("copy.json")}
               </button>
             )}
           </div>

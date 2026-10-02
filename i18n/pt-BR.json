@@ -103,5 +103,7 @@
   "status.questions": "{count, plural, one {# pergunta} other {# perguntas}}",
   "status.tokens": "{count} tokens de prompt",
   "tab.playground": "Playground",
-  "tab.demo": "Demo"
+  "tab.demo": "Demo",
+  "copy.failed": "Cópia bloqueada: selecione o texto",
+  "curl.hint": "A mesma requisição pelo terminal. Defina POM_API_KEY com uma das suas API keys do POM. Clique no texto para selecioná-lo."
 }

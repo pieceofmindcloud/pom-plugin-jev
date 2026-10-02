@@ -292,6 +292,8 @@ html[data-theme="light"] .pb-page {
   color: var(--pb-panel-ink); background: var(--pb-panel); font: 12.5px/1.65 var(--pb-mono); tab-size: 2;
 }
 .pb-code-input[aria-invalid="true"] { border-color: var(--pb-no); }
+.pb-code-input[readonly] { cursor: text; }
+.pb-curl-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 
 .pb-form { display: grid; gap: 14px; }
 .pb-form-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); align-items: start; }

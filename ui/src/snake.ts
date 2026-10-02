@@ -104,19 +104,36 @@ export function reachableAfter(game: Game, dir: Direction): number {
 const distance = (a: Cell, b: Cell) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
 
 /** The state JEV reads: positions only, no image. */
+const STEP_LETTER: Record<string, string> = { "0,-1": "U", "0,1": "D", "-1,0": "L", "1,0": "R" };
+
+/**
+ * The body as run-length steps from the head: `"L4 D2"` means the next four
+ * segments go left of the head, then two go down. It describes exactly the
+ * same cells as a coordinate list for a fraction of the tokens: a 63-segment
+ * snake is a few runs instead of ~450 tokens of `[x,y]` pairs.
+ */
+export function bodySteps(snake: Cell[]): string {
+  const runs: [string, number][] = [];
+  for (let i = 1; i < snake.length; i++) {
+    const letter = STEP_LETTER[`${snake[i].x - snake[i - 1].x},${snake[i].y - snake[i - 1].y}`] ?? "?";
+    const last = runs[runs.length - 1];
+    if (last && last[0] === letter) last[1] += 1;
+    else runs.push([letter, 1]);
+  }
+  return runs.map(([letter, count]) => `${letter}${count}`).join(" ");
+}
+
+/** The state JEV reads: positions only, no image, as few tokens as possible. */
 export function decisionState(game: Game) {
   const head = game.snake[0];
   return {
-    game: "snake",
-    board: { width: GRID, height: GRID, coordinates: "x grows to the right, y grows downwards, (0,0) is the top-left cell" },
-    snake: {
-      head: [head.x, head.y],
-      body: game.snake.slice(1).map((cell) => [cell.x, cell.y]),
-      length: game.snake.length,
-      moving: game.dir,
-    },
+    board: `${GRID}x${GRID}; x grows right, y grows down, (0,0) top-left`,
+    head: [head.x, head.y],
+    moving: game.dir,
+    body: bodySteps(game.snake),
+    body_format: "run-length steps from the head: U up, D down, L left, R right",
+    length: game.snake.length,
     food: game.food ? [game.food.x, game.food.y] : null,
-    score: game.score,
   };
 }
 

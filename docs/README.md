@@ -61,7 +61,9 @@ One **POM-JEV** menu item opens a screen with two tabs.
   curl or JSON, and a status bar with the request state.
 - **Demo**: Snake played by POM-JEV, drawn on a grass field with a tapered,
   scaled snake that slides between cells. Every request sends only positions
-  (head, body, food, current direction) and asks one `choice` question over
+  (head, food and current direction as coordinates, the body as run-length
+  steps from the head such as `"D2 L7 U15"`: the same cells as a coordinate
+  list in a fraction of the tokens, 96 instead of 421 for a 63-segment snake) and asks one `choice` question over
   the next **1 to 3 moves as a path** (`up`, `up-left`, `up-left-left`, ...;
   "Moves per request"). The plugin simulates each path, so a path stops early
   where the snake eats, "Never offer a fatal move" removes paths that die and

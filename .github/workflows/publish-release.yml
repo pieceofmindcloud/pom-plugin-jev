@@ -84,7 +84,7 @@ jobs:
           RELEASE_TAG: ${{ matrix.version }}
       - name: Test
         shell: bash
-        run: cargo test --locked
+        run: cargo test --locked && cargo fmt --check && bash tests/test_ci_plan.sh
         env:
           POM_UI_REQUIRE_DIST: '1'
       - uses: actions/upload-artifact@v4

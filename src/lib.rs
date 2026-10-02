@@ -182,12 +182,7 @@ fn upstream_token(port: u16) -> String {
     format!("{nanos:032x}{:08x}{port:04x}", std::process::id())
 }
 
-fn serve(
-    listener: TcpListener,
-    gateway: Arc<GatewayState>,
-    token: String,
-    stop: Arc<AtomicBool>,
-) {
+fn serve(listener: TcpListener, gateway: Arc<GatewayState>, token: String, stop: Arc<AtomicBool>) {
     while !stop.load(Ordering::Acquire) {
         match listener.accept() {
             Ok((stream, _)) => {
@@ -274,7 +269,11 @@ fn read_request(stream: &mut TcpStream) -> Option<HttpRequest> {
 
 fn handle_request(mut stream: TcpStream, gateway: &GatewayState, token: &str) {
     let Some(request) = read_request(&mut stream) else {
-        write_json_response(&mut stream, "400 Bad Request", &json!({"error": "bad request"}));
+        write_json_response(
+            &mut stream,
+            "400 Bad Request",
+            &json!({"error": "bad request"}),
+        );
         return;
     };
     if request.header("x-pom-plugin-token") != Some(token) {
@@ -347,8 +346,8 @@ fn forward(gateway: &Gateway, method: &str, path: &str, body: Option<&Value>) ->
         }
     };
     let text = response.into_string().unwrap_or_default();
-    let value = serde_json::from_str(&text)
-        .unwrap_or_else(|_| json!({"error": {"message": text.trim()}}));
+    let value =
+        serde_json::from_str(&text).unwrap_or_else(|_| json!({"error": {"message": text.trim()}}));
     (format!("{code} {}", reason(code)), value)
 }
 
@@ -648,7 +647,10 @@ mod tests {
         assert!(reply.starts_with("HTTP/1.1 200"), "{reply}");
         assert!(reply.contains("\"choice\":\"up\""));
         let seen = seen.join().unwrap();
-        assert!(seen.starts_with("POST /v1/systemone Bearer sk-plugin "), "{seen}");
+        assert!(
+            seen.starts_with("POST /v1/systemone Bearer sk-plugin "),
+            "{seen}"
+        );
         assert!(seen.contains("\"questions\""));
     }
 
@@ -665,7 +667,10 @@ mod tests {
         assert!(reply.starts_with("HTTP/1.1 503"), "{reply}");
         let status = call(
             server.port,
-            &format!("GET /status HTTP/1.1\r\nx-pom-plugin-token: {}\r\n\r\n", server.token),
+            &format!(
+                "GET /status HTTP/1.1\r\nx-pom-plugin-token: {}\r\n\r\n",
+                server.token
+            ),
         );
         assert!(status.contains("\"gateway\":false"));
     }

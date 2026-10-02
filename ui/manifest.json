@@ -3,8 +3,8 @@
   "plugin_code": "jev",
   "icon_image": "ui/icon.png",
   "description": {
-    "en": "JEV for the POM: typed decisions from the model your POM serves. Ask yes-or-no (noul), one-of-many (choice) and scale (score) questions about any state and get calibrated probabilities, in a playground and in a live Snake demo where JEV picks every move.",
-    "pt-BR": "JEV para o POM: decisões tipadas com o modelo que o seu POM serve. Faça perguntas de sim ou não (noul), uma entre várias (choice) e escala (score) sobre qualquer estado e receba probabilidades calibradas, num playground e numa demo ao vivo da cobrinha em que o JEV escolhe cada movimento."
+    "en": "POM-JEV: typed decisions from the model your POM serves. Ask yes-or-no (noul), one-of-many (choice) and scale (score) questions about any state and get calibrated probabilities, in a playground and in a live Snake demo where POM-JEV picks every move.",
+    "pt-BR": "POM-JEV: decisões tipadas com o modelo que o seu POM serve. Faça perguntas de sim ou não (noul), uma entre várias (choice) e escala (score) sobre qualquer estado e receba probabilidades calibradas, num playground e numa demo ao vivo da cobrinha em que o POM-JEV escolhe cada movimento."
   },
   "screenshots": [
     "docs/screenshots/playground.png",
@@ -17,56 +17,24 @@
     {
       "id": "jev",
       "label": {
-        "en": "JEV",
-        "pt-BR": "JEV"
+        "en": "POM-JEV",
+        "pt-BR": "POM-JEV"
       },
       "icon": "blocks",
-      "to": "/jev",
-      "children": [
-        {
-          "id": "playground",
-          "label": {
-            "en": "Playground",
-            "pt-BR": "Playground"
-          },
-          "icon": "messages-square",
-          "to": "/jev"
-        },
-        {
-          "id": "demo",
-          "label": {
-            "en": "Demo",
-            "pt-BR": "Demo"
-          },
-          "icon": "list-tree",
-          "to": "/jev/demo"
-        }
-      ]
+      "to": "/jev"
     }
   ],
   "routes": [
     {
       "path": "/jev",
-      "screen": "playground",
-      "full_bleed": true
-    },
-    {
-      "path": "/jev/demo",
-      "screen": "demo",
+      "screen": "jev",
       "full_bleed": true
     }
   ],
   "screens": {
-    "playground": {
+    "jev": {
       "module": "ui/screens.js",
-      "export": "playground",
-      "styles": [
-        "ui/plugin.css"
-      ]
-    },
-    "demo": {
-      "module": "ui/screens.js",
-      "export": "demo",
+      "export": "jev",
       "styles": [
         "ui/plugin.css"
       ]

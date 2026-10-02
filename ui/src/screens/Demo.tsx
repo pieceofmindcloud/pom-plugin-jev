@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePluginI18n } from "../host/runtime";
 import { decide, listModels, percent, ranked } from "../jev";
+import { burst, drawScene, type Particle } from "../snakeArt";
 import {
   DIRECTIONS,
-  DIRS,
-  GRID,
   checkMove,
   decisionState,
   moveQuestion,
   newGame,
   step,
   tickForScore,
+  type Cell,
   type Direction,
   type Game,
 } from "../snake";
@@ -50,145 +50,21 @@ const wait = (ms: number, signal: AbortSignal) =>
     });
   });
 
-// ---------------------------------------------------------------- drawing
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
-}
-
-function drawGame(ctx: CanvasRenderingContext2D, size: number, game: Game, now: number, hint: Direction | null) {
-  const s = size / GRID;
-  ctx.clearRect(0, 0, size, size);
-  const board = ctx.createLinearGradient(0, 0, 0, size);
-  board.addColorStop(0, "#1c2745");
-  board.addColorStop(1, "#131c30");
-  ctx.fillStyle = board;
-  roundRect(ctx, 0, 0, size, size, s * 0.6);
-  ctx.fill();
-  ctx.fillStyle = "rgba(255,255,255,.02)";
-  for (let y = 0; y < GRID; y++) for (let x = 0; x < GRID; x++) if ((x + y) % 2 === 1) ctx.fillRect(x * s, y * s, s, s);
-
-  if (game.food) {
-    const pulse = 0.5 + 0.5 * Math.sin(now / 280);
-    const cx = (game.food.x + 0.5) * s;
-    const cy = (game.food.y + 0.5) * s;
-    ctx.save();
-    const halo = ctx.createRadialGradient(cx, cy, s * 0.12, cx, cy, s * (0.7 + 0.15 * pulse));
-    halo.addColorStop(0, "rgba(255,214,90,.38)");
-    halo.addColorStop(1, "rgba(255,214,90,0)");
-    ctx.fillStyle = halo;
-    ctx.beginPath();
-    ctx.arc(cx, cy, s * (0.7 + 0.15 * pulse), 0, Math.PI * 2);
-    ctx.fill();
-    const bw = s * 0.64;
-    const bh = s * 0.4;
-    ctx.translate(cx, cy);
-    ctx.rotate(-Math.PI / 5 + pulse * 0.08);
-    const banana = ctx.createLinearGradient(0, -bh, 0, bh);
-    banana.addColorStop(0, "#ffe27a");
-    banana.addColorStop(0.5, "#ffd24d");
-    banana.addColorStop(1, "#f2b93c");
-    ctx.fillStyle = banana;
-    ctx.beginPath();
-    ctx.moveTo(-bw / 2, -bh * 0.15);
-    ctx.quadraticCurveTo(0, -bh * 1.4, bw / 2, -bh * 0.15);
-    ctx.quadraticCurveTo(bw * 0.46, bh * 0.78, 0, bh * 0.92);
-    ctx.quadraticCurveTo(-bw * 0.46, bh * 0.78, -bw / 2, -bh * 0.15);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = "#9a7b33";
-    ctx.beginPath();
-    ctx.arc(-bw / 2, -bh * 0.15, s * 0.08, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  }
-
-  const snake = game.snake;
-  if (!snake.length) return;
-  const path = (offset: number) => {
-    ctx.beginPath();
-    snake.forEach((cell, index) => {
-      const px = (cell.x + 0.5) * s + offset;
-      const py = (cell.y + 0.5) * s + offset;
-      if (index === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
-    });
-  };
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  ctx.strokeStyle = "rgba(0,0,0,.25)";
-  ctx.lineWidth = s;
-  path(s * 0.16);
-  ctx.stroke();
-  const head = snake[0];
-  const tail = snake[snake.length - 1];
-  const body = ctx.createLinearGradient((head.x + 0.5) * s, (head.y + 0.5) * s, (tail.x + 0.5) * s, (tail.y + 0.5) * s);
-  body.addColorStop(0, "#8ff5c4");
-  body.addColorStop(0.35, "#4fe6a1");
-  body.addColorStop(1, "#2bbf7e");
-  ctx.strokeStyle = body;
-  ctx.lineWidth = s * 0.8;
-  path(0);
-  ctx.stroke();
-  ctx.strokeStyle = "rgba(255,255,255,.16)";
-  ctx.lineWidth = s * 0.24;
-  path(-s * 0.13);
-  ctx.stroke();
-
-  // Where JEV is about to go.
-  if (hint) {
-    const to = { x: head.x + DIRS[hint].x, y: head.y + DIRS[hint].y };
-    ctx.save();
-    ctx.strokeStyle = "rgba(143,245,196,.55)";
-    ctx.lineWidth = 2;
-    ctx.setLineDash([4, 4]);
-    roundRect(ctx, to.x * s + 2, to.y * s + 2, s - 4, s - 4, s * 0.25);
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  const cx = (head.x + 0.5) * s;
-  const cy = (head.y + 0.5) * s;
-  const r = s * 0.48;
-  const skull = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.4, r * 0.15, cx, cy, r);
-  skull.addColorStop(0, "#aef8d6");
-  skull.addColorStop(0.7, "#5fe9ab");
-  skull.addColorStop(1, "#34c98b");
-  ctx.fillStyle = skull;
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.fill();
-  const d = DIRS[game.dir];
-  const eyeOff = r * 0.45;
-  const fwd = r * 0.32;
-  const px = -d.y;
-  const py = d.x;
-  for (const sign of [1, -1]) {
-    const ex = cx + d.x * fwd + sign * px * eyeOff;
-    const ey = cy + d.y * fwd + sign * py * eyeOff;
-    ctx.fillStyle = "#f6fffb";
-    ctx.beginPath();
-    ctx.arc(ex, ey, r * 0.34, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#0c2a1d";
-    ctx.beginPath();
-    ctx.arc(ex + d.x * r * 0.18, ey + d.y * r * 0.18, r * 0.17, 0, Math.PI * 2);
-    ctx.fill();
-  }
-}
-
 // ---------------------------------------------------------------- screen
 export function Demo() {
   const { t } = usePluginI18n();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
+  const [boardSize, setBoardSize] = useState(0);
   const gameRef = useRef<Game>(newGame());
   const hintRef = useRef<Direction | null>(null);
+  // Animation state: where the snake was, when it moved, how long the slide
+  // lasts, the eat bursts and when the game ended.
+  const previousRef = useRef<Cell[] | null>(null);
+  const movedAtRef = useRef(0);
+  const slideMsRef = useRef(120);
+  const particlesRef = useRef<Particle[]>([]);
+  const deadAtRef = useRef<number | null>(null);
   const humanDir = useRef<Direction>("right");
   const abortRef = useRef<AbortController | null>(null);
   const [, setVersion] = useState(0);
@@ -222,7 +98,10 @@ export function Demo() {
       const canvas = canvasRef.current;
       const holder = frameRef.current;
       if (canvas && holder) {
-        const size = Math.max(1, Math.floor(Math.min(holder.clientWidth, holder.clientHeight || holder.clientWidth)));
+        // The board is the largest square that fits the stage, so the screen
+        // never scrolls whatever the window size.
+        const size = Math.max(120, Math.floor(Math.min(holder.clientWidth, holder.clientHeight || holder.clientWidth)));
+        setBoardSize((current) => (current === size ? current : size));
         const dpr = window.devicePixelRatio || 1;
         if (canvas.width !== Math.round(size * dpr)) {
           canvas.width = Math.round(size * dpr);
@@ -233,7 +112,15 @@ export function Demo() {
         const ctx = canvas.getContext("2d");
         if (ctx) {
           ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-          drawGame(ctx, size, gameRef.current, now, hintRef.current);
+          drawScene(ctx, size, dpr, {
+            game: gameRef.current,
+            previous: previousRef.current,
+            progress: (now - movedAtRef.current) / slideMsRef.current,
+            now,
+            hint: hintRef.current,
+            particles: particlesRef.current,
+            deadFor: deadAtRef.current === null ? null : now - deadAtRef.current,
+          });
         }
       }
       frame = requestAnimationFrame(paint);
@@ -244,7 +131,18 @@ export function Demo() {
 
   useEffect(() => () => abortRef.current?.abort(), []);
 
+  /** Moves to the next position and starts the slide (and a burst on eating). */
+  const advance = useCallback((next: Game) => {
+    const before = gameRef.current;
+    previousRef.current = before.snake;
+    movedAtRef.current = performance.now();
+    slideMsRef.current = Math.max(60, Math.min(tickForScore(next.score), 160));
+    if (next.score > before.score && before.food) burst(before.food, particlesRef.current);
+    gameRef.current = next;
+  }, []);
+
   const finish = useCallback((next: Game) => {
+    deadAtRef.current = performance.now();
     gameRef.current = next;
     hintRef.current = null;
     setBest((value) => Math.max(value, next.score));
@@ -259,11 +157,13 @@ export function Demo() {
         const safe = DIRECTIONS.filter((dir) => !checkMove(current, dir).fatal);
         let choice: Direction;
         let entry: Omit<Decision, "dir" | "ms">;
-        if (guard && safe.length === 0) {
+        // No choice to make: JEV is not asked. Zero safe moves ends the game;
+        // one safe move is played directly, with or without the guard.
+        if (safe.length === 0) {
           finish({ ...current, status: "over", cause: "trapped" });
           break;
         }
-        if (guard && safe.length === 1) {
+        if (safe.length === 1) {
           choice = safe[0];
           entry = { move: current.moves + 1, forced: true, probabilities: { [choice]: 1 }, score: current.score };
         } else {
@@ -301,7 +201,7 @@ export function Demo() {
           finish(next);
           break;
         }
-        gameRef.current = next;
+        advance(next);
         setBest((value) => Math.max(value, next.score));
         render();
         // Never faster than the original game's speed for this score.
@@ -309,7 +209,7 @@ export function Demo() {
       }
       setRunning(false);
     },
-    [finish, guard, hints, model, t],
+    [advance, finish, guard, hints, model, t],
   );
 
   const humanLoop = useCallback(
@@ -322,13 +222,13 @@ export function Demo() {
           finish(next);
           break;
         }
-        gameRef.current = next;
+        advance(next);
         setBest((value) => Math.max(value, next.score));
         render();
       }
       setRunning(false);
     },
-    [finish],
+    [advance, finish],
   );
 
   const start = (fresh: boolean) => {
@@ -337,6 +237,9 @@ export function Demo() {
     abortRef.current = controller;
     if (fresh || gameRef.current.status !== "playing") {
       gameRef.current = { ...newGame(), status: "playing" };
+      previousRef.current = null;
+      particlesRef.current = [];
+      deadAtRef.current = null;
       humanDir.current = "right";
       setLog([]);
     }
@@ -380,14 +283,16 @@ export function Demo() {
   const latest = log[0];
 
   return (
-    <main className="pb-page">
-      <header className="pb-head">
-        <div>
-          <p className="pb-eyebrow"><span className="pb-tick" aria-hidden="true" />{t("demo.eyebrow")}</p>
-          <h1 className="pb-title">{t("demo.title")}</h1>
-          <p className="pb-lede">{t("demo.body")}</p>
+    <main className="pb-page pb-ide">
+      <header className="pb-ide-bar">
+        <div className="pb-ide-brand">
+          <span className="pb-ide-logo" aria-hidden="true">J</span>
+          <div>
+            <h1>{t("demo.title")}</h1>
+            <p>{t("demo.body")}</p>
+          </div>
         </div>
-        <div className="pb-toolbar">
+        <div className="pb-ide-actions">
           <div className="pb-segmented" role="radiogroup" aria-label={t("demo.pilot")}>
             {(["jev", "human"] as Pilot[]).map((value) => (
               <button
@@ -403,9 +308,9 @@ export function Demo() {
             ))}
           </div>
           {pilot === "jev" && (
-            <label className="pb-field">
+            <label className="pb-field pb-field-inline">
               <span>{t("playground.model")}</span>
-              <select value={model} disabled={running} onChange={(event) => setModel(event.target.value)}>
+              <select className="pb-select" value={model} disabled={running} onChange={(event) => setModel(event.target.value)}>
                 {models.length === 0 && <option value="">{t("playground.modelActive")}</option>}
                 {models.map((id) => (
                   <option key={id} value={id}>{id}</option>
@@ -423,7 +328,8 @@ export function Demo() {
             <div className="pb-score"><span>{t("demo.moves")}</span><strong>{game.moves}</strong></div>
             <div className="pb-score"><span>{t("demo.best")}</span><strong>{best}</strong></div>
           </div>
-          <div className="pb-board" ref={frameRef}>
+          <div className="pb-stage" ref={frameRef}>
+          <div className="pb-board" style={boardSize ? { width: boardSize, height: boardSize } : undefined}>
             <canvas ref={canvasRef} aria-label={t("demo.boardLabel")} role="img" />
             {!running && (
               <div className="pb-overlay">
@@ -460,6 +366,7 @@ export function Demo() {
                 </div>
               </div>
             )}
+          </div>
           </div>
           <div className="pb-btn-row">
             <button type="button" className="pb-btn pb-btn-outline pb-btn-small" disabled={!running} onClick={stop}>

@@ -4,6 +4,7 @@ import { decide, listModels, percent, ranked } from "../jev";
 import { burst, drawScene, type Particle } from "../snakeArt";
 import {
   DIRECTIONS,
+  GRID,
   checkMove,
   decisionState,
   enumeratePaths,
@@ -392,6 +393,9 @@ export function Demo() {
     : null;
   const latest = log[0];
 
+  // Where the finished-game notice docks: the edge farthest from the head.
+  const overEdge = (game.snake[0]?.y ?? 0) < GRID / 2 ? "pb-overlay-bottom" : "pb-overlay-top";
+
   return (
     <main className="pb-page pb-ide">
       <header className="pb-ide-bar">
@@ -442,7 +446,9 @@ export function Demo() {
           <div className="pb-board" style={boardSize ? { width: boardSize, height: boardSize } : undefined}>
             <canvas ref={canvasRef} aria-label={t("demo.boardLabel")} role="img" />
             {!running && (
-              <div className="pb-overlay">
+              // A finished game keeps its board in view: the notice becomes a
+              // slim bar on the edge away from where the snake died.
+              <div className={game.status === "over" ? `pb-overlay pb-overlay-over ${overEdge}` : "pb-overlay"}>
                 <div className="pb-overlay-card">
                   <h2>
                     {game.status === "over"

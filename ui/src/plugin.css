@@ -383,6 +383,19 @@ html[data-theme="light"] .pb-page {
   background: linear-gradient(90deg, #a7f3d8, #5eead4); -webkit-background-clip: text; background-clip: text; color: transparent;
 }
 .pb-overlay-card p { color: #a9b4ca; font-size: 14px; }
+/* Game over: the board stays visible. No veil, and the card shrinks to a bar
+   docked on the edge away from the snake's head. */
+.pb-overlay-over { align-items: flex-end; padding: 10px; background: none; backdrop-filter: none; pointer-events: none; }
+.pb-overlay-over.pb-overlay-top { align-items: flex-start; }
+.pb-overlay-over .pb-overlay-card {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 14px;
+  max-width: 100%; padding: 8px 14px; border-radius: 14px;
+  background: rgba(23, 32, 58, .88); backdrop-filter: blur(4px); pointer-events: auto;
+}
+.pb-overlay-over .pb-overlay-card h2 { margin: 0 !important; font-size: 16px; }
+.pb-overlay-over .pb-overlay-card p { font-size: 12.5px; }
+.pb-overlay-over .pb-btn-row { margin: 0; }
+.pb-overlay-over .pb-btn { padding: 6px 14px; font-size: 12px; }
 
 .pb-side { display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow-y: auto; }
 .pb-side > .pb-log { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 140px; }

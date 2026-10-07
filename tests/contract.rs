@@ -120,7 +120,8 @@ fn release_contract_and_workflow_publish_to_github_only() {
     let workflow = text(".github/workflows/publish-release.yml");
     assert!(workflow.contains("dist-release/pom-plugin-jev-${{ matrix.platform }}"));
     assert!(workflow.contains("softprops/action-gh-release"));
-    assert!(!workflow.contains("license-server") && !workflow.contains("POM_RELEASE_TOKEN"));
+    // Stable releases also go to the license server, POM's fallback.
+    assert!(workflow.contains("license-server") && workflow.contains("POM_RELEASE_TOKEN"));
     let build = text("scripts/build.sh");
     assert!(build.contains("libpom_plugin_jev"));
     let cargo = text("Cargo.toml");

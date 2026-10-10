@@ -1,6 +1,7 @@
 {
   "schema": "pom-plugin-ui/v1",
   "plugin_code": "jev",
+  "lifecycle": "on_demand",
   "icon_image": "ui/icon.png",
   "description": {
     "en": "POM-JEV: typed decisions from the model your POM serves. Ask yes-or-no (noul), one-of-many (choice) and scale (score) questions about any state and get calibrated probabilities, in a playground and in a live Snake demo where POM-JEV picks every move.",

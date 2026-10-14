@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { usePluginI18n } from "../host/runtime";
+import { useScreenReady } from "../host/ready";
 import { EXAMPLES } from "../examples";
 import {
   ENDPOINT,
@@ -356,6 +357,7 @@ export function Playground() {
   const [jsonText, setJsonText] = useState("");
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [models, setModels] = useState<string[]>([]);
+  const [modelsSettled, setModelsSettled] = useState(false);
   const [model, setModel] = useState("");
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<DecisionResponse | null>(null);
@@ -368,15 +370,23 @@ export function Playground() {
       .then((ids) => {
         if (!active) return;
         setModels(ids);
+        setModelsSettled(true);
         setModel((current) => current || ids[0] || "");
       })
       .catch(() => {
-        if (active) setModels([]);
+        if (!active) return;
+        setModels([]);
+        setModelsSettled(true);
       });
     return () => {
       active = false;
     };
   }, []);
+
+  // The editor and its example are drawn at once; the model list is the only
+  // part still on its way, so the host opens the screen when it settled -
+  // arrived or failed - and not over a select that is about to fill.
+  useScreenReady(modelsSettled);
 
   const issues = useMemo(() => validate(drafts), [drafts]);
   const stateMissing = !stateText.trim();

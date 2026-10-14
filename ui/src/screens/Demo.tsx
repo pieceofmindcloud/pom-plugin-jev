@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePluginI18n } from "../host/runtime";
+import { useScreenReady } from "../host/ready";
 import { decide, listModels, percent, ranked } from "../jev";
 import { burst, drawScene, type Particle } from "../snakeArt";
 import {
@@ -104,6 +105,7 @@ export function Demo() {
   const [depth, setDepth] = useState<number>(2);
   const [ahead, setAhead] = useState(true);
   const [models, setModels] = useState<string[]>([]);
+  const [modelsSettled, setModelsSettled] = useState(false);
   const [model, setModel] = useState("");
   const [log, setLog] = useState<Decision[]>([]);
   const [best, setBest] = useState(0);
@@ -117,10 +119,19 @@ export function Demo() {
     listModels()
       .then((ids) => {
         setModels(ids);
+        setModelsSettled(true);
         setModel((current) => current || ids[0] || "");
       })
-      .catch(() => setModels([]));
+      .catch(() => {
+        setModels([]);
+        setModelsSettled(true);
+      });
   }, []);
+
+  // The board and its start overlay are drawn at once; the model list is the
+  // only part still on its way, so the host opens the screen when it settled -
+  // arrived or failed - and not over a select that is about to fill.
+  useScreenReady(modelsSettled);
 
   // Paint every frame (the banana pulses); the game itself moves in turns.
   useEffect(() => {

@@ -1,7 +1,8 @@
 # Project agent memory
 
 - `src/lib.rs`: ABI entry `pom_jev_plugin_v1`, embedded assets, and the loopback upstream (`/status`, `/models`, `/decide`) that forwards to `<gateway>/systemone` with the `host.configure` key. The browser never receives the key.
-- `ui/src/jev.ts` is the browser client; POST goes straight to `/api/ui/plugins/jev/proxy/decide` (the host SDK only offers GET). `ui/src/host/runtime.ts` is the only place that touches `__POM_HOST__`.
+- `ui/src/jev.ts` is the browser client; POST goes straight to `/api/ui/plugins/jev/proxy/decide` (the host SDK only offers GET). `ui/src/host/runtime.ts` is the only place that touches `__POM_HOST__`, apart from `ui/src/host/ready.ts` below.
+- `ui/src/host/ready.ts` - the "finished rendering" signal the POM waits for (host version 6, `__POM_HOST__.ready()`). The host mounts the screen hidden (`.pom-plugin-pending`) under its pieces animation and only opens it when this signal arrives or its short wait ends: a plugin without the signal keeps working, and an older host has no `ready`, so the call is skipped. `useScreenReady(ready)` sends it once per mount, when the first content settles - the model list in `Playground` and in `Demo` - not on the first render.
 - One menu item and one route (`/jev`); `screens/JevApp.tsx` shows Playground and Demo as tabs. Both fill the viewport without page scroll: panes scroll internally.
 - `ui/src/snake.ts` holds the pure game rules and the decision state/question, `ui/src/snakeArt.ts` the drawing; `Demo.tsx` runs the loop: one `plan` choice per request over paths of 1-3 moves (`enumeratePaths`), an optional prefetch keyed by `positionKey`, and no request when only one path survives.
 - Menu icons must exist in the POM host map (`apps/frontend/src/components/nav.ts` in the POM repo).

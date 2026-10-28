@@ -50,7 +50,7 @@ to say something else, and the answer deserves less trust.
 
 ## Screens
 
-One **POM-JEV** menu item opens a screen with two tabs.
+One **JEV** menu item opens a screen with two tabs.
 
 
 - **Playground**: a full-screen editor. The explorer on the left lists the

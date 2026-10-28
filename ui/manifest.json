@@ -18,8 +18,8 @@
     {
       "id": "jev",
       "label": {
-        "en": "POM-JEV",
-        "pt-BR": "POM-JEV"
+        "en": "JEV",
+        "pt-BR": "JEV"
       },
       "icon": "blocks",
       "to": "/jev"

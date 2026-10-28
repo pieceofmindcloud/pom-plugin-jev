@@ -2,7 +2,7 @@
 
 POM-JEV (plugin code `jev`): typed decisions (`noul`, `choice`, `score`) from the model
 your POM serves, through the POM `/v1/systemone` endpoint. The plugin adds a
-**POM-JEV** item to the POM sidebar. Its screen has two tabs:
+**JEV** item to the POM sidebar. Its screen has two tabs:
 
 - **Playground**: an editor to build typed questions over a state, run them
   against a model and read calibrated answers.

@@ -23,7 +23,7 @@ fn manifest_registers_one_menu_item_with_playground_and_demo_tabs() {
     assert_eq!(manifest["icon_image"], "ui/icon.png");
     let menu = manifest["menu"].as_array().expect("menu");
     assert_eq!(menu.len(), 1);
-    assert_eq!(menu[0]["label"]["en"], "POM-JEV");
+    assert_eq!(menu[0]["label"]["en"], "JEV");
     assert_eq!(menu[0]["to"], "/jev");
     assert!(menu[0].get("children").is_none());
     let routes = manifest["routes"].as_array().unwrap();
